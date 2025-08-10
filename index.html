@@ -228,9 +228,9 @@
       let perDay = '';
       if (goal && days > 0) {
         const remain = Math.max(goal - done, 0);
-        perDay = `1日あたり必要なタスク数: <b>${(remain / days).toFixed(2)}</b>`;
+        perDay = `1日あたりに必要なタスク数: <b>${(remain / days).toFixed(2)}</b>`;
       } else {
-        perDay = '1日あたり必要なタスク数: -';
+        perDay = '1日あたりに必要なタスク数: -';
       }
       tasksPerDayDiv.innerHTML = perDay;
 
