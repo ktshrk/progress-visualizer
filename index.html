@@ -17,6 +17,10 @@
       margin-top: 1em;
     }
 
+    .container {
+      margin-bottom: 2rem;
+    }
+
     .bar-container {
       width: 300px;
       height: 30px;
@@ -79,42 +83,65 @@
 <body>
   <h1>タスク進捗可視化アプリ</h1>
   <form id="taskForm">
-    <label>
-      開始日:
-      <input type="date" id="startDate" required>
-    </label>
-    <label>
-      終了日:
-      <input type="date" id="endDate" required>
-    </label>
-    <label>
-      目標タスク数:
-      <input type="number" id="goalTasks" min="1" required>
-    </label>
-    <label>
-      完了タスク数:
-      <input type="number" id="doneTasks" min="0" required>
-    </label>
-    <div style="margin-top:1.5em;">
-      <button type="button" id="loadBtn1">読込1</button>
-      <button type="button" id="loadBtn2">読込2</button>
-      <button type="button" id="loadBtn3">読込3</button>
-      <button type="button" id="loadBtn4">読込4</button>
-      <button type="button" id="resetAllBtn" style="margin-left:1em; background:#e53935; color:#fff;">全スロットリセット</button>
+    <div class="container">
+      <label>
+        開始日:
+        <input type="date" id="startDate" required>
+      </label>
+      <label>
+        終了日:
+        <input type="date" id="endDate" required>
+      </label>
     </div>
-    <div style="margin-top:0.5em;">
-      <button type="button" class="saveBtn" data-slot="1">保存1</button>
-      <button type="button" class="saveBtn" data-slot="2">保存2</button>
-      <button type="button" class="saveBtn" data-slot="3">保存3</button>
-      <button type="button" class="saveBtn" data-slot="4">保存4</button>
+
+    <div class="container">
+      <label>
+        目標タスク数:
+        <input type="number" id="goalTasks" min="1" required>
+      </label>
+      <label>
+        完了タスク数:
+        <input type="number" id="doneTasks" min="0" required>
+      </label>
+    </div>
+    <div class="container">
+      <label>
+        <div id="remainTasks"></div>
+      </label>
+      <label>
+        目標1日タスク数:
+        <input type="number" id="targetPerDay" min="1" step="1" required>
+      </label>
+      <label>
+        <div id="predictedEndDate"></div>
+      </label>
+    </div>
+
+    <div class="container">
+      <div class="result" id="tasksPerDay"></div>
+      <div class="bar-container">
+        <div class="bar" id="progressBar" style="width:0%"></div>
+        <span class="bar-label" id="barLabel">0%</span>
+      </div>
+    </div>
+
+    <div class="container">
+      <div>
+        <button type="button" id="loadBtn1">読込1</button>
+        <button type="button" id="loadBtn2">読込2</button>
+        <button type="button" id="loadBtn3">読込3</button>
+        <button type="button" id="loadBtn4">読込4</button>
+      </div>
+      <div>
+        <button type="button" class="saveBtn" data-slot="1">保存1</button>
+        <button type="button" class="saveBtn" data-slot="2">保存2</button>
+        <button type="button" class="saveBtn" data-slot="3">保存3</button>
+        <button type="button" class="saveBtn" data-slot="4">保存4</button>
+        <button type="button" id="resetAllBtn"
+          style="margin-left:1em; background:#e53935; color:#fff;">全スロットリセット</button>
+      </div>
     </div>
   </form>
-
-  <div class="result" id="tasksPerDay"></div>
-  <div class="bar-container">
-    <div class="bar" id="progressBar" style="width:0%"></div>
-    <span class="bar-label" id="barLabel">0%</span>
-  </div>
 
   <script>
     // DOM要素取得
@@ -126,6 +153,9 @@
     const progressBar = document.getElementById('progressBar');
     const barLabel = document.getElementById('barLabel');
     const saveBtns = document.querySelectorAll('.saveBtn');
+    const remainTasksDiv = document.getElementById('remainTasks');
+    const targetPerDayInput = document.getElementById('targetPerDay');
+    const predictedEndDateDiv = document.getElementById('predictedEndDate');
 
     // デフォルトで今日の日付をセット
     const today = new Date().toISOString().split('T')[0];
@@ -157,10 +187,12 @@
         endDateInput.value = saved.endDate;
         goalTasksInput.value = saved.goalTasks;
         doneTasksInput.value = saved.doneTasks;
+        targetPerDayInput.value = saved.targetPerDay ?? '';
       } else {
         endDateInput.value = '';
         goalTasksInput.value = '';
         doneTasksInput.value = '';
+        targetPerDayInput.value = '';
       }
       // 開始日は常に今日
       startDateInput.value = today;
@@ -177,20 +209,13 @@
         const data = {
           endDate: endDateInput.value,
           goalTasks: goalTasksInput.value,
-          doneTasks: doneTasksInput.value
+          doneTasks: doneTasksInput.value,
+          targetPerDay: targetPerDayInput.value
         };
         localStorage.setItem('taskProgress' + slot, JSON.stringify(data));
         updateSaveBtnStates();
         alert(`スロット${slot}に保存しました`);
       };
-    });
-
-    // 入力値が変わったら計算・表示＆保存ボタン状態も更新
-    [startDateInput, endDateInput, goalTasksInput, doneTasksInput].forEach(input => {
-      input.addEventListener('input', () => {
-        update();
-        updateSaveBtnStates();
-      });
     });
 
     // 保存ボタンの状態を更新
@@ -203,7 +228,8 @@
           saved &&
           saved.endDate === endDateInput.value &&
           saved.goalTasks === goalTasksInput.value &&
-          saved.doneTasks === doneTasksInput.value
+          saved.doneTasks === doneTasksInput.value &&
+          saved.targetPerDay === targetPerDayInput.value
         ) {
           btn.classList.add('active-save');
         } else {
@@ -212,11 +238,39 @@
       });
     }
 
+    // 入力値が変わったら計算・表示＆保存ボタン状態も更新
+    [startDateInput, endDateInput, goalTasksInput, doneTasksInput, targetPerDayInput].forEach(input => {
+      input.addEventListener('input', () => {
+        update();
+        updateSaveBtnStates();
+      });
+    });
+
     function update() {
       const start = startDateInput.value;
       const end = endDateInput.value;
       const goal = Number(goalTasksInput.value);
       const done = Number(doneTasksInput.value);
+      const targetPerDay = Number(targetPerDayInput.value);
+
+      // 残タスク数の表示
+      const remainNum = goal - done;
+      remainTasksDiv.innerHTML = `残タスク数: ${remainNum >= 0 && !isNaN(remainNum) ? remainNum : '-'}`;
+
+      // 予想終了日の表示
+      let predictedText = '';
+      if (targetPerDay > 0 && remainNum > 0 && !isNaN(remainNum)) {
+        const daysNeeded = Math.ceil(remainNum / targetPerDay);
+        const todayDate = new Date();
+        todayDate.setDate(todayDate.getDate() + daysNeeded);
+        const yyyy = todayDate.getFullYear();
+        const mm = String(todayDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(todayDate.getDate()).padStart(2, '0');
+        predictedText = `予想終了日: ${yyyy}-${mm}-${dd}（${daysNeeded}日後）`;
+      } else {
+        predictedText = '予想終了日: -';
+      }
+      predictedEndDateDiv.innerHTML = predictedText;
 
       // 日数計算
       let days = 0;
